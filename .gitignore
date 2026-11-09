@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+build/
+dist/
+*.egg-info/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Django local data and generated files
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+youtube_cookies.txt
+
+# Transcription outputs and downloaded audio
+*.mp3
+*.wav
+*.m4a
+*.docx
+
+# Downloaded ML models and caches
+.cache/
+cache/
+models/
+
+# Test, type-checker, and linter caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# React Native / Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+.expo/
+.expo-shared/
+web-build/
+
+# Native build artifacts
+android/.gradle/
+android/app/build/
+ios/Pods/
+ios/build/
+
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
