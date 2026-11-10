@@ -1,0 +1,3 @@
+-No escribas código por mi a menos de que se te indique explícitamente.
+-Dime cómo programar junto con snippets de código.
+-Aplica buenas prácticas y documenta explicativamente todo el código que escribas.

@@ -1,7 +1,18 @@
-from django.http import JsonResponse
 import json
+import logging
+
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
-from .transcripcion import transcribir_video  # Función a extraer del script
+
+from .transcripcion import (
+    InvalidYouTubeUrlError,
+    TranscriptionError,
+    transcribir_video,
+)
+
+
+logger = logging.getLogger(__name__)
 
 
 def saludo(request):
@@ -11,6 +22,7 @@ def saludo(request):
     return JsonResponse({"mensaje": "Hola desde Django"})
 
 
+@csrf_exempt
 @require_POST
 def transcribir(request):
     """
@@ -18,13 +30,31 @@ def transcribir(request):
     """
     try:
         datos = json.loads(request.body)
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, UnicodeDecodeError):
         return JsonResponse({"error": "El cuerpo debe ser JSON válido."}, status=400)
 
+    if not isinstance(datos, dict):
+        return JsonResponse(
+            {"error": "El cuerpo JSON debe ser un objeto."},
+            status=400,
+        )
+
     url = datos.get("url")
-    # Validate that the URL exists and is a non-empty string.
     if not isinstance(url, str) or not url.strip():
         return JsonResponse({"error": "Falta la URL del video."}, status=400)
-    # Call the transcribir_video function with the provided URL if the URL is valid.
-    resultado = transcribir_video(url.strip())
+
+    try:
+        resultado = transcribir_video(url.strip())
+    except InvalidYouTubeUrlError as error:
+        return JsonResponse({"error": str(error)}, status=400)
+    except TranscriptionError as error:
+        logger.exception("Falló la descarga del video solicitado.")
+        return JsonResponse({"error": str(error)}, status=502)
+    except Exception:
+        logger.exception("Falló la transcripción del video solicitado.")
+        return JsonResponse(
+            {"error": "No se pudo completar la transcripción."},
+            status=500,
+        )
+
     return JsonResponse(resultado)

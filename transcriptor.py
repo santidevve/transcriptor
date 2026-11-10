@@ -18,57 +18,7 @@ class Transcriptor:
         return bool(re.search(patron, url))
 
 
-    def download_audio_ytdlp(self, youtube_url, output_file="audio.mp3"):
-        """
-        Descarga el audio de un video de YouTube y lo convierte a formato MP3.
-        """
-        # Verificar que yt-dlp y ffmpeg estén disponibles en el PATH
-        if not shutil.which("yt-dlp"):
-            print("❌ Error: 'yt-dlp' no está instalado o no se encuentra en el PATH.")
-            return
-        if not shutil.which("ffmpeg"):
-            print("⚠️ Advertencia: 'ffmpeg' no fue detectado. La conversión a MP3 fallará.")
-
-        try:
-            print(f"Accediendo al video y extrayendo audio: {youtube_url}")
-
-            # Eliminar archivo de salida si ya existe
-            if os.path.exists(output_file):
-                os.remove(output_file)
-
-            # Configurar comando robusto obligando el uso de node con su ruta absoluta en Colab
-            comando = [
-                'yt-dlp',
-                '-x',
-                '--audio-format', 'mp3',
-                '--audio-quality', '0',
-                '--no-playlist',
-                '--force-overwrites',
-                '--js-runtimes', 'node:/usr/bin/node',
-                '-o', output_file
-            ]
-
-            cookies_file = "youtube_cookies.txt"
-            if os.path.exists(cookies_file):
-                print(f"📌 Usando cookies desde '{cookies_file}'...")
-                comando.extend(['--cookies', cookies_file])
-
-            comando.append(youtube_url)
-
-            resultado = subprocess.run(comando, capture_output=True, text=True)
-
-            if resultado.returncode != 0:
-                print("\n❌ Error durante la ejecución de yt-dlp:")
-                print(resultado.stderr)
-                return
-
-            if os.path.exists(output_file):
-                print(f"\n✅ Descarga completada con éxito: {output_file}")
-            else:
-                print("❌ No se encontró el archivo generado. Verifique los logs de ffmpeg/yt-dlp.")
-
-        except Exception as e:
-            print(f"Error inesperado: {e}")
+    
 
 
     def obtener_titulo_youtube(self, url):
