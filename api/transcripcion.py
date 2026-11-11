@@ -97,7 +97,8 @@ def _descargar_audio(url, output_dir):
     except yt_dlp.utils.DownloadError as error:
         logger.exception("No se pudo descargar el video de YouTube.")
         raise TranscriptionError(
-            "No se pudo descargar el video. Comprueba que sea accesible."
+            "YouTube rechazó la descarga o el video no está accesible desde "
+            "el servidor. Inténtalo más tarde con un video público."
         ) from error
 
     audio_path = Path(audio_path)

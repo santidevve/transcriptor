@@ -10,6 +10,8 @@ El frontend React/Vite está en Vercel y la API Django/Whisper en una instancia 
 
 El Blueprint selecciona `WHISPER_MODEL=tiny` para reducir memoria y configura CORS para el dominio de Vercel. El primer uso descarga el modelo y puede tardar; al suspenderse o reiniciarse la instancia, se pierde la caché y podría descargarse de nuevo. La transcripción de videos largos puede exceder los recursos o el tiempo disponible en el plan gratuito.
 
+**Limitación comprobada:** YouTube puede bloquear las descargas desde las IPs de centros de datos con una verificación anti-bot. En ese caso, la API devuelve un error aunque el video sea público. No se garantiza que la transcripción desde YouTube funcione consistentemente en alojamiento gratuito.
+
 ## Sitio web en Vercel
 
 El frontend ya está publicado en Vercel como `https://transcriptor-movil.vercel.app`, conectado al repositorio, y `VITE_API_URL` apunta a `https://transcriptor-api.onrender.com`. Si el Blueprint crea otra URL de Render, actualiza `VITE_API_URL` en Production y Preview y vuelve a desplegar Vercel.
