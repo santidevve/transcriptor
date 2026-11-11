@@ -1,12 +1,19 @@
 import os
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, SimpleTestCase
 from django.urls import reverse
 
-from .transcripcion import obtener_modelo, transcribir_video, validar_url_youtube
+from .transcripcion import (
+    InvalidAudioFileError,
+    obtener_modelo,
+    transcribir_archivo_subido,
+    transcribir_video,
+    validar_url_youtube,
+)
 
 
 class YouTubeUrlTests(SimpleTestCase):
@@ -87,6 +94,37 @@ class TranscriptionApiTests(SimpleTestCase):
         )
         self.assertEqual(response.status_code, 200)
 
+    def test_file_endpoint_requires_an_upload(self):
+        response = self.client.post(reverse("transcribir_archivo"))
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json(), {"error": "Selecciona un archivo."})
+
+    @patch("api.views.MAX_UPLOAD_SIZE", 1)
+    def test_file_endpoint_rejects_oversized_upload(self):
+        response = self.client.post(
+            reverse("transcribir_archivo"),
+            {"archivo": SimpleUploadedFile("audio.wav", b"audio")},
+        )
+
+        self.assertEqual(response.status_code, 413)
+
+    @patch("api.views.transcribir_archivo_subido")
+    def test_file_endpoint_returns_transcription(self, transcribir):
+        transcribir.return_value = {
+            "titulo": "audio",
+            "idioma": "es",
+            "segmentos": [{"inicio": 0.0, "fin": 1.0, "texto": "Hola"}],
+        }
+        response = self.client.post(
+            reverse("transcribir_archivo"),
+            {"archivo": SimpleUploadedFile("audio.wav", b"audio")},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), transcribir.return_value)
+        transcribir.assert_called_once()
+
 
 class TranscriptionServiceTests(SimpleTestCase):
     @patch.dict(os.environ, {"WHISPER_MODEL": "tiny"})
@@ -152,3 +190,59 @@ class TranscriptionServiceTests(SimpleTestCase):
         )
         self.assertTrue(downloaded_paths)
         self.assertFalse(downloaded_paths[0].exists())
+
+    def test_uploaded_audio_is_transcribed_and_removed_afterward(self):
+        media = MagicMock()
+        media.streams.audio = [object()]
+        media.duration = 5_000_000
+        open_media = MagicMock()
+        open_media.return_value.__enter__.return_value = media
+        open_media.return_value.__exit__.return_value = False
+        transcribed_paths = []
+
+        def fake_transcribe(audio_path, title):
+            self.assertTrue(Path(audio_path).is_file())
+            self.assertEqual(title, "audio de prueba")
+            transcribed_paths.append(Path(audio_path))
+            return {"titulo": title, "idioma": "es", "segmentos": []}
+
+        with (
+            patch("api.transcripcion.av.open", open_media),
+            patch("api.transcripcion._transcribir_archivo", side_effect=fake_transcribe),
+        ):
+            result = transcribir_archivo_subido(
+                SimpleUploadedFile("audio de prueba.wav", b"audio")
+            )
+
+        self.assertEqual(result["titulo"], "audio de prueba")
+        self.assertEqual(open_media.call_count, 1)
+        self.assertFalse(transcribed_paths[0].exists())
+
+    def test_uploaded_audio_over_one_minute_is_rejected(self):
+        media = MagicMock()
+        media.streams.audio = [object()]
+        media.duration = 61_000_000
+        open_media = MagicMock()
+        open_media.return_value.__enter__.return_value = media
+        open_media.return_value.__exit__.return_value = False
+
+        with patch("api.transcripcion.av.open", open_media):
+            with self.assertRaisesRegex(InvalidAudioFileError, "60 segundos"):
+                transcribir_archivo_subido(
+                    SimpleUploadedFile("audio.wav", b"audio")
+                )
+
+    def test_uploaded_unsupported_file_is_rejected(self):
+        with self.assertRaisesRegex(InvalidAudioFileError, "Formato no admitido"):
+            transcribir_archivo_subido(SimpleUploadedFile("document.pdf", b"data"))
+
+    def test_uploaded_audio_without_audio_track_is_rejected(self):
+        media = MagicMock()
+        media.streams.audio = []
+        open_media = MagicMock()
+        open_media.return_value.__enter__.return_value = media
+        open_media.return_value.__exit__.return_value = False
+
+        with patch("api.transcripcion.av.open", open_media):
+            with self.assertRaisesRegex(InvalidAudioFileError, "pista de audio"):
+                transcribir_archivo_subido(SimpleUploadedFile("video.mp4", b"data"))

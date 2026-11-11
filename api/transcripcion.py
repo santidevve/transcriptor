@@ -4,6 +4,8 @@ from functools import lru_cache
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from urllib.parse import parse_qs, urlparse
+
+import av
 import yt_dlp
 from faster_whisper import WhisperModel
 
@@ -16,6 +18,18 @@ YOUTUBE_HOSTS = {
     "music.youtube.com",
 }
 SHORT_HOSTS = {"youtu.be", "www.youtu.be"}
+MAX_UPLOAD_SIZE = 25 * 1024 * 1024
+MAX_AUDIO_DURATION_SECONDS = 60
+SUPPORTED_AUDIO_EXTENSIONS = {
+    ".flac",
+    ".m4a",
+    ".mp3",
+    ".mp4",
+    ".mov",
+    ".ogg",
+    ".wav",
+    ".webm",
+}
 
 
 class TranscriptionError(Exception):
@@ -24,6 +38,10 @@ class TranscriptionError(Exception):
 
 class InvalidYouTubeUrlError(ValueError):
     """Raised when a request does not contain a supported YouTube video URL."""
+
+
+class InvalidAudioFileError(ValueError):
+    """Raised when an uploaded file is unsupported or exceeds its limits."""
 
 
 def validar_url_youtube(url):
@@ -116,18 +134,74 @@ def transcribir_video(url):
 
     with TemporaryDirectory(prefix="transcripcion-") as temp_dir:
         video, audio_path = _descargar_audio(url.strip(), temp_dir)
-        segments, info = obtener_modelo().transcribe(str(audio_path), beam_size=5)
-        serialized_segments = [
+        return _transcribir_archivo(str(audio_path), video.get("title"))
+
+
+def _transcribir_archivo(audio_path, title):
+    segments, info = obtener_modelo().transcribe(audio_path, beam_size=5)
+    return {
+        "titulo": title or "Archivo de audio",
+        "idioma": info.language,
+        "segmentos": [
             {
                 "inicio": float(segment.start),
                 "fin": float(segment.end),
                 "texto": segment.text.strip(),
             }
             for segment in segments
-        ]
+        ],
+    }
 
-        return {
-            "titulo": video.get("title") or "Video de YouTube",
-            "idioma": info.language,
-            "segmentos": serialized_segments,
-        }
+
+def transcribir_archivo_subido(uploaded_file):
+    """Validate and transcribe a short uploaded audio/video file."""
+    suffix = Path(uploaded_file.name).suffix.lower()
+    if suffix not in SUPPORTED_AUDIO_EXTENSIONS:
+        raise InvalidAudioFileError(
+            "Formato no admitido. Usa MP3, WAV, M4A, MP4, OGG, FLAC o WebM."
+        )
+    if uploaded_file.size == 0:
+        raise InvalidAudioFileError("El archivo está vacío.")
+    if uploaded_file.size > MAX_UPLOAD_SIZE:
+        raise InvalidAudioFileError("El archivo no puede superar los 25 MB.")
+
+    with TemporaryDirectory(prefix="transcripcion-") as temp_dir:
+        audio_path = Path(temp_dir) / f"archivo{suffix}"
+        with audio_path.open("wb") as destination:
+            for chunk in uploaded_file.chunks():
+                destination.write(chunk)
+
+        try:
+            with av.open(str(audio_path)) as media:
+                audio_streams = media.streams.audio
+                if not audio_streams:
+                    raise InvalidAudioFileError(
+                        "El archivo no contiene una pista de audio."
+                    )
+
+                duration = media.duration
+                if duration is None:
+                    stream = audio_streams[0]
+                    if stream.duration is None or stream.time_base is None:
+                        raise InvalidAudioFileError(
+                            "No se pudo determinar la duración del archivo."
+                        )
+                    duration = float(stream.duration * stream.time_base)
+                else:
+                    duration = duration / av.time_base
+
+                if duration > MAX_AUDIO_DURATION_SECONDS:
+                    raise InvalidAudioFileError(
+                        "El audio no puede durar más de 60 segundos."
+                    )
+        except InvalidAudioFileError:
+            raise
+        except (av.error.FFmpegError, OSError, ValueError) as error:
+            raise InvalidAudioFileError(
+                "El archivo no es un audio o video válido."
+            ) from error
+
+        return _transcribir_archivo(
+            str(audio_path),
+            Path(uploaded_file.name).stem or "Archivo de audio",
+        )

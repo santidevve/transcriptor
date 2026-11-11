@@ -1,6 +1,8 @@
 import { useState } from 'react';
 
 const apiBaseUrl = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
+const maxUploadSize = 25 * 1024 * 1024;
+const acceptedFileTypes = '.flac,.m4a,.mp3,.mp4,.mov,.ogg,.wav,.webm';
 
 function formatTime(seconds) {
   const totalSeconds = Math.floor(Number(seconds) || 0);
@@ -11,6 +13,7 @@ function formatTime(seconds) {
 
 export default function App() {
   const [url, setUrl] = useState('');
+  const [archivo, setArchivo] = useState(null);
   const [resultado, setResultado] = useState(null);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState('');
@@ -41,25 +44,16 @@ export default function App() {
     }
   }
 
-  async function solicitarTranscripcion(event) {
-    event.preventDefault();
-    const urlLimpia = url.trim();
-
-    if (!urlLimpia) {
-      setError('Pega el enlace de un video de YouTube.');
-      setResultado(null);
-      return;
-    }
-
+  async function enviarTranscripcion(endpoint, body, headers = {}) {
     setCargando(true);
     setError('');
     setResultado(null);
 
     try {
-      const response = await fetch(`${apiBaseUrl}/api/transcribir/`, {
+      const response = await fetch(`${apiBaseUrl}${endpoint}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: urlLimpia }),
+        headers,
+        body,
       });
 
       let data;
@@ -107,6 +101,42 @@ export default function App() {
     }
   }
 
+  async function solicitarTranscripcion(event) {
+    event.preventDefault();
+    const urlLimpia = url.trim();
+
+    if (!urlLimpia) {
+      setError('Pega el enlace de un video de YouTube.');
+      setResultado(null);
+      return;
+    }
+
+    await enviarTranscripcion(
+      '/api/transcribir/',
+      JSON.stringify({ url: urlLimpia }),
+      { 'Content-Type': 'application/json' },
+    );
+  }
+
+  async function solicitarArchivo(event) {
+    event.preventDefault();
+
+    if (!archivo) {
+      setError('Selecciona un archivo de audio o video.');
+      setResultado(null);
+      return;
+    }
+    if (archivo.size > maxUploadSize) {
+      setError('El archivo no puede superar los 25 MB.');
+      setResultado(null);
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('archivo', archivo);
+    await enviarTranscripcion('/api/transcribir-archivo/', formData);
+  }
+
   return (
     <main className="page-shell">
       <header className="topbar">
@@ -120,15 +150,37 @@ export default function App() {
       <section className="workspace" aria-labelledby="page-title">
         <div className="intro">
           <span className="eyebrow">TRANSCRIPCIÓN CON IA</span>
-          <h1 id="page-title">Convierte videos en texto.</h1>
+          <h1 id="page-title">Convierte audio en texto.</h1>
           <p>
-            Pega un enlace de YouTube y obtén una transcripción organizada por
-            marcas de tiempo.
+            Sube un archivo para transcribirlo con marcas de tiempo. También
+            puedes probar con un enlace de YouTube.
           </p>
         </div>
 
+        <form className="url-form upload-form" onSubmit={solicitarArchivo}>
+          <label htmlFor="audio-file">Archivo de audio o video</label>
+          <input
+            accept={acceptedFileTypes}
+            id="audio-file"
+            onChange={(event) => setArchivo(event.target.files?.[0] || null)}
+            type="file"
+          />
+          <p className="form-hint">
+            MP3, WAV, M4A, MP4, MOV, OGG, FLAC o WebM; máximo 25 MB y 60
+            segundos. Se elimina al terminar.
+          </p>
+          {archivo && (
+            <p className="selected-file" aria-live="polite">
+              Archivo seleccionado: {archivo.name}
+            </p>
+          )}
+          <button className="upload-button" disabled={cargando} type="submit">
+            {cargando ? 'Transcribiendo…' : 'Transcribir archivo'}
+          </button>
+        </form>
+
         <form className="url-form" onSubmit={solicitarTranscripcion}>
-          <label htmlFor="video-url">Enlace del video</label>
+          <label htmlFor="video-url">O pega un enlace de YouTube</label>
           <div className="input-row">
             <input
               autoComplete="url"
@@ -232,7 +284,7 @@ export default function App() {
       </section>
 
       <footer className="footer">
-        <span>Transcriptor de YouTube</span>
+        <span>Transcriptor de audio y video</span>
         <span>El resultado depende de la calidad del audio.</span>
       </footer>
     </main>

@@ -12,6 +12,8 @@ El Blueprint selecciona `WHISPER_MODEL=tiny` para reducir memoria y configura CO
 
 **Limitación comprobada:** YouTube puede bloquear las descargas desde las IPs de centros de datos con una verificación anti-bot. En ese caso, la API devuelve un error aunque el video sea público. No se garantiza que la transcripción desde YouTube funcione consistentemente en alojamiento gratuito.
 
+Para transcribir de forma confiable sin depender de YouTube, el sitio permite subir un archivo local de audio o video (MP3, WAV, M4A, MP4, MOV, OGG, FLAC o WebM) de hasta 25 MB y 60 segundos. El archivo se guarda temporalmente y se elimina al terminar. El límite corto evita agotar el tiempo y la memoria del servicio gratuito.
+
 ## Sitio web en Vercel
 
 El frontend ya está publicado en Vercel como `https://transcriptor-movil.vercel.app`, conectado al repositorio, y `VITE_API_URL` apunta a `https://transcriptor-api.onrender.com`. Si el Blueprint crea otra URL de Render, actualiza `VITE_API_URL` en Production y Preview y vuelve a desplegar Vercel.

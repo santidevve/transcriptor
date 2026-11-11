@@ -132,6 +132,10 @@ p {
   padding: 23px;
 }
 
+.upload-form {
+  margin-bottom: 16px;
+}
+
 .url-form label {
   display: block;
   margin-bottom: 10px;
@@ -181,6 +185,47 @@ p {
 }
 
 .input-row button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.upload-form input[type="file"] {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  border: 1px dashed #cbd3e1;
+  border-radius: 9px;
+  background: #fbfcfe;
+  color: #39465d;
+  font-size: 13px;
+}
+
+.selected-file {
+  overflow: hidden;
+  margin: 10px 0 0;
+  color: #39465d;
+  font-size: 12px;
+  text-overflow: ellipsis;
+}
+
+.upload-button {
+  width: 100%;
+  min-height: 46px;
+  margin-top: 16px;
+  border: 0;
+  border-radius: 9px;
+  background: #315ee7;
+  color: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.upload-button:hover:not(:disabled) {
+  background: #244bc4;
+}
+
+.upload-button:disabled {
   cursor: wait;
   opacity: 0.7;
 }

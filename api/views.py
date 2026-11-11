@@ -6,8 +6,11 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from .transcripcion import (
+    MAX_UPLOAD_SIZE,
+    InvalidAudioFileError,
     InvalidYouTubeUrlError,
     TranscriptionError,
+    transcribir_archivo_subido,
     transcribir_video,
 )
 
@@ -52,6 +55,36 @@ def transcribir(request):
         return JsonResponse({"error": str(error)}, status=502)
     except Exception:
         logger.exception("Falló la transcripción del video solicitado.")
+        return JsonResponse(
+            {"error": "No se pudo completar la transcripción."},
+            status=500,
+        )
+
+    return JsonResponse(resultado)
+
+
+@csrf_exempt
+@require_POST
+def transcribir_archivo(request):
+    """Transcribe a short audio or video file uploaded by the user."""
+    uploaded_file = request.FILES.get("archivo")
+    if uploaded_file is None:
+        return JsonResponse({"error": "Selecciona un archivo."}, status=400)
+    if uploaded_file.size > MAX_UPLOAD_SIZE:
+        return JsonResponse(
+            {"error": "El archivo no puede superar los 25 MB."},
+            status=413,
+        )
+
+    try:
+        resultado = transcribir_archivo_subido(uploaded_file)
+    except InvalidAudioFileError as error:
+        return JsonResponse({"error": str(error)}, status=400)
+    except TranscriptionError as error:
+        logger.exception("Falló la transcripción del archivo subido.")
+        return JsonResponse({"error": str(error)}, status=502)
+    except Exception:
+        logger.exception("Falló la transcripción del archivo subido.")
         return JsonResponse(
             {"error": "No se pudo completar la transcripción."},
             status=500,
