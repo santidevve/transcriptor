@@ -1,0 +1,8 @@
+Django>=5.2,<7.0
+yt-dlp
+faster-whisper
+gunicorn
+dj-database-url
+psycopg[binary]
+whitenoise
+django-cors-headers

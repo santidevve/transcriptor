@@ -1,5 +1,7 @@
 import { useState } from 'react';
 
+const apiBaseUrl = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
+
 function formatTime(seconds) {
   const totalSeconds = Math.floor(Number(seconds) || 0);
   const minutes = Math.floor(totalSeconds / 60);
@@ -54,7 +56,7 @@ export default function App() {
     setResultado(null);
 
     try {
-      const response = await fetch('/api/transcribir/', {
+      const response = await fetch(`${apiBaseUrl}/api/transcribir/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: urlLimpia }),

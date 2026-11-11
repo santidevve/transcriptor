@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: transcriptor-api
+    runtime: python
+    plan: standard
+    region: ohio
+    buildCommand: pip install -r requirements-web.txt && python manage.py collectstatic --no-input
+    startCommand: python manage.py migrate --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120
+    healthCheckPath: /api/saludo/
+    autoDeploy: true
+    disk:
+      name: whisper-cache
+      mountPath: /var/data
+      sizeGB: 5
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: DJANGO_DEBUG
+        value: "False"
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: transcriptor-db
+          property: connectionString
+      - key: HF_HOME
+        value: /var/data/huggingface
+
+databases:
+  - name: transcriptor-db
+    plan: basic-256mb
+    region: ohio
+    databaseName: transcriptor
+    user: transcriptor
