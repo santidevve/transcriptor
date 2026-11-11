@@ -1,7 +1,7 @@
 Django>=5.2,<7.0
 yt-dlp
 faster-whisper
-av>=13.1
+av>=13.1,<19
 gunicorn
 dj-database-url
 psycopg[binary]
