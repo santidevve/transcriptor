@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -5,7 +6,7 @@ from unittest.mock import patch
 from django.test import Client, SimpleTestCase
 from django.urls import reverse
 
-from .transcripcion import transcribir_video, validar_url_youtube
+from .transcripcion import obtener_modelo, transcribir_video, validar_url_youtube
 
 
 class YouTubeUrlTests(SimpleTestCase):
@@ -88,6 +89,20 @@ class TranscriptionApiTests(SimpleTestCase):
 
 
 class TranscriptionServiceTests(SimpleTestCase):
+    @patch.dict(os.environ, {"WHISPER_MODEL": "tiny"})
+    @patch("api.transcripcion.WhisperModel")
+    def test_loads_configured_whisper_model(self, whisper_model):
+        obtener_modelo.cache_clear()
+        self.addCleanup(obtener_modelo.cache_clear)
+
+        obtener_modelo()
+
+        whisper_model.assert_called_once_with(
+            "tiny",
+            device="cpu",
+            compute_type="int8",
+        )
+
     @patch("api.transcripcion.obtener_modelo")
     @patch("api.transcripcion.yt_dlp.YoutubeDL")
     def test_downloads_transcribes_and_serializes_segments(

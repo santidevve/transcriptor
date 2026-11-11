@@ -1,4 +1,5 @@
 import logging
+import os
 from functools import lru_cache
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -69,7 +70,8 @@ def validar_url_youtube(url):
 @lru_cache(maxsize=1)
 def obtener_modelo():
     """Load Whisper once per Django worker, on the first transcription."""
-    return WhisperModel("small", device="cpu", compute_type="int8")
+    model_name = os.environ.get("WHISPER_MODEL", "small")
+    return WhisperModel(model_name, device="cpu", compute_type="int8")
 
 
 def _descargar_audio(url, output_dir):

@@ -1,25 +1,17 @@
-# Despliegue de producción
+# Despliegue gratuito (con límites)
 
-La aplicación tiene dos servicios: React/Vite en Vercel y Django/Whisper en Render. El servicio de transcripción necesita memoria y procesamiento persistente, por lo que no se ejecuta en funciones serverless de Vercel.
+El frontend React/Vite está en Vercel y la API Django/Whisper en una instancia gratuita de Render. Esta opción no tiene costo dentro de los límites gratuitos de ambos proveedores, pero no es adecuada para producción crítica: Render suspende el servicio tras 15 minutos sin tráfico, el arranque en frío puede tardar alrededor de un minuto, el sistema de archivos no es persistente y la transcripción CPU con el modelo `tiny` será más lenta y menos precisa.
 
 ## API en Render
 
 1. En Render, crea un **Blueprint** desde este repositorio y selecciona la rama `feature/transcription-and-document-download`.
-2. Render leerá [`render.yaml`](./render.yaml) para crear el servicio Django, PostgreSQL y el disco persistente para la caché del modelo Whisper.
-3. En el servicio web, añade `CORS_ALLOWED_ORIGINS` con el origen exacto del sitio de Vercel (por ejemplo, `https://transcriptor-movil.vercel.app`, sin barra final).
-4. Espera a que termine el despliegue y verifica `https://<servicio>.onrender.com/api/saludo/`.
+2. Render leerá [`render.yaml`](./render.yaml) para crear solo el servicio web gratuito: no se crean PostgreSQL ni discos persistentes. Si Render muestra un recurso con costo al revisar el Blueprint, no lo confirmes.
+3. Espera a que termine el despliegue y verifica `https://<servicio>.onrender.com/api/saludo/`.
 
-El plan `standard`, el disco persistente y PostgreSQL son recursos de pago de Render; revisa el costo mostrado por Render antes de confirmar la creación. El tamaño de la instancia permite mantener el modelo Whisper en memoria y el disco lo conserva entre reinicios. PostgreSQL almacena los datos y sesiones de Django.
+El Blueprint selecciona `WHISPER_MODEL=tiny` para reducir memoria y configura CORS para el dominio de Vercel. El primer uso descarga el modelo y puede tardar; al suspenderse o reiniciarse la instancia, se pierde la caché y podría descargarse de nuevo. La transcripción de videos largos puede exceder los recursos o el tiempo disponible en el plan gratuito.
 
 ## Sitio web en Vercel
 
-1. Importa `santidevve/transcriptor` en Vercel.
-2. Configura **Root Directory** como `frontend`, Framework Preset `Vite`, Build Command `npm run build` y Output Directory `dist`.
-3. Define la variable de entorno `VITE_API_URL` para Production y Preview con el origen Render, por ejemplo `https://<servicio>.onrender.com` (sin barra final).
-4. Despliega y prueba una transcripción real desde el sitio publicado.
+El frontend ya está publicado en Vercel como `https://transcriptor-movil.vercel.app`, conectado al repositorio, y `VITE_API_URL` apunta a `https://transcriptor-api.onrender.com`. Si el Blueprint crea otra URL de Render, actualiza `VITE_API_URL` en Production y Preview y vuelve a desplegar Vercel.
 
-La URL de la API se lee durante el build del frontend. Si cambia, actualiza `VITE_API_URL` y vuelve a desplegar. Para desarrollo local, déjala sin definir: Vite usa el proxy de `frontend/vite.config.js`.
-
-## Variables de entorno de Render
-
-El Blueprint genera `DJANGO_SECRET_KEY`, define `DJANGO_DEBUG=False`, conecta `DATABASE_URL` y almacena la caché de Hugging Face en el disco persistente. `RENDER_EXTERNAL_HOSTNAME` se incluye automáticamente en los hosts permitidos. Configura manualmente `CORS_ALLOWED_ORIGINS` después de conocer el dominio final de Vercel.
+La URL de la API se lee durante el build del frontend. Para desarrollo local, déjala sin definir: Vite usa el proxy de `frontend/vite.config.js`.
