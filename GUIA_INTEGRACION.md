@@ -41,10 +41,15 @@ integración de notificaciones push en segundo plano.
 
 FFmpeg debe estar instalado y accesible desde `PATH`. El modelo Whisper
 `small` se descarga y carga en CPU la primera vez que se solicita una
-transcripción; por eso la primera ejecución puede tardar. Si YouTube requiere
-autenticación para un video al que tienes acceso, guarda las cookies de yt-dlp
-en `youtube_cookies.txt` (el archivo está excluido de Git). El audio temporal
-se elimina al terminar.
+transcripción; por eso la primera ejecución puede tardar. Para un video de
+YouTube que requiera autenticación, el formulario admite opcionalmente un
+archivo Netscape `cookies.txt` de hasta 1 MB. El archivo se usa solo durante
+esa solicitud y se elimina junto con el audio temporal. Las cookies son
+credenciales sensibles: exporta solo las de YouTube y no las compartas. Su uso
+no garantiza que YouTube permita la descarga desde una IP de centro de datos.
+
+El resultado se puede exportar desde la interfaz como un documento Word
+`.docx`, con el título, idioma, marcas de tiempo y texto de cada segmento.
 
 ## Compilar para publicar
 

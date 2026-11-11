@@ -7,3 +7,4 @@ dj-database-url
 psycopg[binary]
 whitenoise
 django-cors-headers
+python-docx

@@ -19,6 +19,7 @@ YOUTUBE_HOSTS = {
 }
 SHORT_HOSTS = {"youtu.be", "www.youtu.be"}
 MAX_UPLOAD_SIZE = 25 * 1024 * 1024
+MAX_COOKIE_FILE_SIZE = 1024 * 1024
 MAX_AUDIO_DURATION_SECONDS = 60
 SUPPORTED_AUDIO_EXTENSIONS = {
     ".flac",
@@ -38,6 +39,10 @@ class TranscriptionError(Exception):
 
 class InvalidYouTubeUrlError(ValueError):
     """Raised when a request does not contain a supported YouTube video URL."""
+
+
+class InvalidCookieFileError(ValueError):
+    """Raised when an uploaded YouTube cookie file is invalid or too large."""
 
 
 class InvalidAudioFileError(ValueError):
@@ -92,7 +97,7 @@ def obtener_modelo():
     return WhisperModel(model_name, device="cpu", compute_type="int8")
 
 
-def _descargar_audio(url, output_dir):
+def _descargar_audio(url, output_dir, cookies_path=None):
     output_template = str(Path(output_dir) / "audio.%(ext)s")
     options = {
         "format": "bestaudio/best",
@@ -102,8 +107,7 @@ def _descargar_audio(url, output_dir):
         "no_warnings": True,
     }
 
-    cookies_path = Path(__file__).resolve().parent.parent / "youtube_cookies.txt"
-    if cookies_path.is_file():
+    if cookies_path is not None:
         options["cookiefile"] = str(cookies_path)
 
     try:
@@ -125,7 +129,7 @@ def _descargar_audio(url, output_dir):
     return video, audio_path
 
 
-def transcribir_video(url):
+def transcribir_video(url, uploaded_cookie_file=None):
     """Download a YouTube video temporarily and return JSON-ready segments."""
     if not validar_url_youtube(url):
         raise InvalidYouTubeUrlError(
@@ -133,8 +137,35 @@ def transcribir_video(url):
         )
 
     with TemporaryDirectory(prefix="transcripcion-") as temp_dir:
-        video, audio_path = _descargar_audio(url.strip(), temp_dir)
+        cookies_path = None
+        if uploaded_cookie_file is not None:
+            cookies_path = _guardar_cookies_subidas(uploaded_cookie_file, temp_dir)
+        video, audio_path = _descargar_audio(url.strip(), temp_dir, cookies_path)
         return _transcribir_archivo(str(audio_path), video.get("title"))
+
+
+def _guardar_cookies_subidas(uploaded_cookie_file, output_dir):
+    suffix = Path(uploaded_cookie_file.name).suffix.lower()
+    if suffix != ".txt":
+        raise InvalidCookieFileError("El archivo de cookies debe tener extensión .txt.")
+    if uploaded_cookie_file.size == 0:
+        raise InvalidCookieFileError("El archivo de cookies está vacío.")
+    if uploaded_cookie_file.size > MAX_COOKIE_FILE_SIZE:
+        raise InvalidCookieFileError("El archivo de cookies no puede superar 1 MB.")
+
+    cookies_path = Path(output_dir) / "youtube-cookies.txt"
+    with cookies_path.open("wb") as destination:
+        for chunk in uploaded_cookie_file.chunks():
+            destination.write(chunk)
+
+    with cookies_path.open("rb") as source:
+        first_line = source.readline().lstrip(b"\xef\xbb\xbf").strip()
+    if first_line not in {b"# HTTP Cookie File", b"# Netscape HTTP Cookie File"}:
+        raise InvalidCookieFileError(
+            "El archivo no parece estar en formato Netscape cookies.txt."
+        )
+
+    return cookies_path
 
 
 def _transcribir_archivo(audio_path, title):

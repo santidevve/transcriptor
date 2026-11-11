@@ -189,7 +189,8 @@ p {
   opacity: 0.7;
 }
 
-.upload-form input[type="file"] {
+.upload-form input[type="file"],
+#youtube-cookies {
   display: block;
   width: 100%;
   padding: 12px;
@@ -198,6 +199,58 @@ p {
   background: #fbfcfe;
   color: #39465d;
   font-size: 13px;
+}
+
+#youtube-cookies {
+  margin: 0 0 10px;
+}
+
+.cookie-guide {
+  margin: 0 0 18px;
+  color: #39465d;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.cookie-guide summary {
+  color: #3152bf;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.cookie-guide ol {
+  padding-left: 21px;
+}
+
+.cookie-guide li + li {
+  margin-top: 8px;
+}
+
+.cookie-guide a {
+  color: #3152bf;
+  overflow-wrap: anywhere;
+}
+
+.cookie-warning {
+  margin: 12px 0 0;
+  padding: 11px 12px;
+  border-radius: 8px;
+  background: #fff7e6;
+  color: #754c00;
+  font-size: 12px;
+}
+
+.cookie-consent {
+  display: flex !important;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 10px 0 16px !important;
+  font-weight: 400 !important;
+  line-height: 1.5;
+}
+
+.cookie-consent input {
+  margin-top: 3px;
 }
 
 .selected-file {
@@ -326,11 +379,33 @@ p {
 
 .transcript-heading {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   padding: 23px 24px;
   border-bottom: 1px solid #edf0f5;
+}
+
+.download-word-button {
+  min-height: 38px;
+  padding: 0 13px;
+  border: 1px solid #cbd6fb;
+  border-radius: 8px;
+  background: #f7f8ff;
+  color: #3152bf;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.download-word-button:hover:not(:disabled) {
+  background: #edf1ff;
+}
+
+.download-word-button:disabled {
+  cursor: wait;
+  opacity: 0.7;
 }
 
 .transcript-heading h2 {

@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 const apiBaseUrl = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
 const maxUploadSize = 25 * 1024 * 1024;
+const maxCookieFileSize = 1024 * 1024;
 const acceptedFileTypes = '.flac,.m4a,.mp3,.mp4,.mov,.ogg,.wav,.webm';
 
 function formatTime(seconds) {
@@ -14,8 +15,11 @@ function formatTime(seconds) {
 export default function App() {
   const [url, setUrl] = useState('');
   const [archivo, setArchivo] = useState(null);
+  const [archivoCookies, setArchivoCookies] = useState(null);
+  const [cookiesConfirmadas, setCookiesConfirmadas] = useState(false);
   const [resultado, setResultado] = useState(null);
   const [cargando, setCargando] = useState(false);
+  const [descargandoWord, setDescargandoWord] = useState(false);
   const [error, setError] = useState('');
   const [notificationPermission, setNotificationPermission] = useState(() => (
     typeof Notification === 'undefined' ? 'unsupported' : Notification.permission
@@ -111,6 +115,25 @@ export default function App() {
       return;
     }
 
+    if (archivoCookies && archivoCookies.size > maxCookieFileSize) {
+      setError('El archivo de cookies no puede superar 1 MB.');
+      setResultado(null);
+      return;
+    }
+    if (archivoCookies && !cookiesConfirmadas) {
+      setError('Confirma que entiendes el riesgo antes de enviar tus cookies.');
+      setResultado(null);
+      return;
+    }
+
+    if (archivoCookies) {
+      const formData = new FormData();
+      formData.append('url', urlLimpia);
+      formData.append('cookies', archivoCookies);
+      await enviarTranscripcion('/api/transcribir/', formData);
+      return;
+    }
+
     await enviarTranscripcion(
       '/api/transcribir/',
       JSON.stringify({ url: urlLimpia }),
@@ -135,6 +158,45 @@ export default function App() {
     const formData = new FormData();
     formData.append('archivo', archivo);
     await enviarTranscripcion('/api/transcribir-archivo/', formData);
+  }
+
+  async function descargarTranscripcionWord() {
+    setDescargandoWord(true);
+    setError('');
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/descargar-transcripcion-docx/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(resultado),
+      });
+
+      if (!response.ok) {
+        let message = 'No se pudo generar el documento Word.';
+        try {
+          const data = await response.json();
+          message = data.error || message;
+        } catch {
+          // Keep the readable fallback when the server does not return JSON.
+        }
+        throw new Error(message);
+      }
+
+      const documentUrl = URL.createObjectURL(await response.blob());
+      const link = document.createElement('a');
+      link.href = documentUrl;
+      const safeTitle = (resultado.titulo || 'transcripcion')
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9_-]+/g, '-')
+        .replace(/^-|-$/g, '') || 'transcripcion';
+      link.download = `${safeTitle}.docx`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(documentUrl), 1000);
+    } catch (requestError) {
+      setError(requestError.message || 'No se pudo descargar el documento Word.');
+    } finally {
+      setDescargandoWord(false);
+    }
   }
 
   return (
@@ -181,6 +243,76 @@ export default function App() {
 
         <form className="url-form" onSubmit={solicitarTranscripcion}>
           <label htmlFor="video-url">O pega un enlace de YouTube</label>
+          <details className="cookie-guide">
+            <summary>Cómo usar cookies de YouTube (opcional)</summary>
+            <ol>
+              <li>
+                Instala una extensión confiable:{' '}
+                <a
+                  href="https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc"
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  Get cookies.txt LOCALLY para Chrome
+                </a>
+                {' '}o{' '}
+                <a
+                  href="https://addons.mozilla.org/en-US/firefox/addon/cookies-txt/"
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  cookies.txt para Firefox
+                </a>
+                . No instales la extensión antigua “Get cookies.txt” que no
+                incluya “LOCALLY”.
+              </li>
+              <li>
+                Inicia sesión en YouTube, abre el video y usa la extensión para
+                exportar las cookies de youtube.com en formato Netscape
+                cookies.txt.
+              </li>
+              <li>
+                Selecciona ese archivo, pega el enlace del video y pulsa
+                “Descargar y transcribir desde YouTube”. El servidor descarga
+                el audio solo para procesarlo y luego lo elimina; no se entrega
+                un archivo de audio para guardar.
+              </li>
+            </ol>
+            <p className="cookie-warning">
+              Las cookies pueden dar acceso a tu cuenta. Exporta solo las de
+              YouTube, úsalo solo con videos a los que tengas derecho de acceso,
+              no compartas este archivo y evita usar tu cuenta principal. Se
+              envían por HTTPS al servidor para esta solicitud y no se guardan
+              como archivo permanente. YouTube puede invalidarlas o limitar la
+              cuenta; las cookies no garantizan que se evite un bloqueo.
+            </p>
+          </details>
+          <label htmlFor="youtube-cookies">Archivo cookies.txt (opcional)</label>
+          <input
+            accept=".txt,text/plain"
+            id="youtube-cookies"
+            onChange={(event) => {
+              setArchivoCookies(event.target.files?.[0] || null);
+              setCookiesConfirmadas(false);
+            }}
+            type="file"
+          />
+          {archivoCookies && (
+            <>
+              <p className="selected-file" aria-live="polite">
+                Archivo seleccionado: {archivoCookies.name}
+              </p>
+              <label className="cookie-consent">
+                <input
+                  checked={cookiesConfirmadas}
+                  onChange={(event) => setCookiesConfirmadas(event.target.checked)}
+                  type="checkbox"
+                />
+                Entiendo que el archivo contiene credenciales de sesión y autorizo
+                su uso temporal para esta transcripción.
+              </label>
+            </>
+          )}
           <div className="input-row">
             <input
               autoComplete="url"
@@ -192,11 +324,14 @@ export default function App() {
               value={url}
             />
             <button disabled={cargando} type="submit">
-              {cargando ? 'Transcribiendo…' : 'Transcribir'}
+              {cargando
+                ? 'Descargando y transcribiendo…'
+                : 'Descargar y transcribir desde YouTube'}
             </button>
           </div>
           <p className="form-hint">
-            El audio se procesa en tu servidor y se elimina al terminar.
+            El audio se procesa en el servidor y se elimina al terminar. Las
+            cookies son opcionales y solo se usan para este intento.
           </p>
           <div className="notification-controls">
             {notificationPermission === 'default' && (
@@ -261,6 +396,14 @@ export default function App() {
                   Idioma: {resultado.idioma}
                 </span>
               )}
+              <button
+                className="download-word-button"
+                disabled={descargandoWord}
+                onClick={descargarTranscripcionWord}
+                type="button"
+              >
+                {descargandoWord ? 'Preparando Word…' : 'Descargar en Word'}
+              </button>
             </div>
             {resultado.segmentos.length === 0 ? (
               <p className="empty-state">No se detectó voz en este video.</p>

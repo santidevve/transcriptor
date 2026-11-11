@@ -10,9 +10,13 @@ El frontend React/Vite está en Vercel y la API Django/Whisper en una instancia 
 
 El Blueprint selecciona `WHISPER_MODEL=tiny` para reducir memoria y configura CORS para el dominio de Vercel. El primer uso descarga el modelo y puede tardar; al suspenderse o reiniciarse la instancia, se pierde la caché y podría descargarse de nuevo. La transcripción de videos largos puede exceder los recursos o el tiempo disponible en el plan gratuito.
 
-**Limitación comprobada:** YouTube puede bloquear las descargas desde las IPs de centros de datos con una verificación anti-bot. En ese caso, la API devuelve un error aunque el video sea público. No se garantiza que la transcripción desde YouTube funcione consistentemente en alojamiento gratuito.
+**Limitación comprobada:** YouTube puede bloquear las descargas desde las IPs de centros de datos con una verificación anti-bot. En ese caso, la API devuelve un error aunque el video sea público. No se garantiza que la transcripción desde YouTube funcione consistentemente en alojamiento gratuito. El formulario permite adjuntar opcionalmente un `cookies.txt` de YouTube; las cookies se copian al directorio temporal de la solicitud y se eliminan al terminar, pero no evitan bloqueos de IP ni garantizan acceso.
 
-Para transcribir de forma confiable sin depender de YouTube, el sitio permite subir un archivo local de audio o video (MP3, WAV, M4A, MP4, MOV, OGG, FLAC o WebM) de hasta 25 MB y 60 segundos. El archivo se guarda temporalmente y se elimina al terminar. El límite corto evita agotar el tiempo y la memoria del servicio gratuito.
+Las cookies son credenciales de sesión. El frontend advierte al usuario antes de enviarlas: solo debe exportar cookies de YouTube y no compartir el archivo. La API solo acepta el formato Netscape `.txt` de hasta 1 MB y no las escribe en almacenamiento permanente ni en los logs de aplicación. YouTube puede invalidarlas o limitar la cuenta.
+
+Para transcribir sin depender de YouTube, el sitio permite subir un archivo local de audio o video (MP3, WAV, M4A, MP4, MOV, OGG, FLAC o WebM) de hasta 25 MB y 60 segundos. El archivo se guarda temporalmente y se elimina al terminar. El límite corto evita agotar el tiempo y la memoria del servicio gratuito.
+
+Tras una transcripción, el usuario puede descargar un documento Word `.docx` con el título, idioma, marcas de tiempo y segmentos.
 
 ## Sitio web en Vercel
 
